@@ -290,3 +290,132 @@ body {
     height: auto;
     margin-bottom: 20px;
 }
+
+
+/* Code block styling for HTML and JavaScript */
+
+/* Base code block styles */
+pre {
+    background-color: #f6f8fa;
+    border: 1px solid #e1e4e8;
+    border-radius: 6px;
+    padding: 16px;
+    overflow-x: auto;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    margin: 1.5em 0;
+}
+
+code {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 14px;
+}
+
+/* Inline code styling */
+p code, li code {
+    background-color: #f6f8fa;
+    padding: 2px 6px;
+    border-radius: 3px;
+    border: 1px solid #e1e4e8;
+    font-size: 0.9em;
+}
+
+/* HTML Code Blocks */
+.code-html {
+    background-color: #fff5f5;
+    border-left: 4px solid #e53e3e;
+}
+
+.code-html::before {
+    content: "HTML";
+    display: block;
+    color: #e53e3e;
+    font-weight: 600;
+    font-size: 12px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* JavaScript Code Blocks */
+.code-js {
+    background-color: #fffbeb;
+    border-left: 4px solid #f59e0b;
+}
+
+.code-js::before {
+    content: "JavaScript";
+    display: block;
+    color: #f59e0b;
+    font-weight: 600;
+    font-size: 12px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Scrollbar styling for code blocks */
+pre::-webkit-scrollbar {
+    height: 8px;
+}
+
+pre::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+pre::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+pre::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Responsive code blocks */
+@media (max-width: 768px) {
+    pre {
+        padding: 12px;
+        font-size: 13px;
+    }
+    
+    .code-html::before,
+    .code-js::before {
+        font-size: 11px;
+    }
+}
+
+.code-container {
+    position: relative;
+  }
+  
+  .copy-btn {
+    position: absolute;
+    top: 12px;
+    right: 16px;
+    padding: 4px 10px;
+    font-size: 12px;
+    background: #393f48;
+    color: #fff;
+    border: none;
+    border-radius: 2px;
+    cursor: pointer;
+    opacity: 0.85;
+    transition: background 0.2s;
+    z-index: 2;
+  }
+  .copy-btn:hover {
+    background: #569cd6;
+  }
+  
+  .code-container pre,
+.code-container code,
+.code-js,
+.code-html {
+    background-color: #23272e !important;  /* slightly darker than Prism-Tomorrow */
+    color: #d6deeb !important;
+    border-radius: 8px;
+    border: none;
+}

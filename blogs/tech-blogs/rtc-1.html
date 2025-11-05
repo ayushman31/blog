@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Introduction to WebRTC</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.css">
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/prism.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-javascript.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-markup.min.js"></script>
+    <link rel="stylesheet" href="../../styles/main.css">
+</head>
+<body>
+    <div class="container">
+        <div class="content-header">
+            <h1 class="content-page-title">Get Started with WebRTC (1/n)</h1>
+            <div class="content-meta">November 5, 2025</div>
+            <a href="../../techblogs.html" class="back-link">← back to tech blogs</a>
+        </div>
+        
+        <div class="content-body">
+            <p>WebRTC is a technology that enables devices to send and receive media streams (audio and video). It uses WebRTC APIs for accessing the media devices (cameras and microphones), encoding and decoding media streams, and handling connections and transportation.</p>
+            <img class="content-image" src="https://miro.medium.com/v2/resize:fit:828/format:webp/1*AvU2D7RTVGIZtMzULvj-Fw.png">
+            <p>The WebRTC API mainly consists of 3 javascript objects:</p>
+            <ul>
+                <li>RTCPeerConnection</li>
+                <li>MediaStream</li>
+                <li>RTCDataChannel</li>
+            </ul>
+            <h2>RTCPeerConnection</h2>
+            <p>This object is responsible for initializing, setting up and creating a peer connection. It also manages the UDP connection with another user.</p>
+            <img class="content-image" src="https://miro.medium.com/v2/resize:fit:1100/format:webp/1*FMhN2DySAlyJV_hu2sofcQ.png">
+            <p>The RTCPeerConnection object can be created like:</p>
+            <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <pre class="code-js"><code class="language-js">var conn = new RTCPeerConnection(conf);</code></pre>
+            </div>
+            <p>The RTCPeerConnection object accepts a configuration parameter (conf), which typically includes at least one key like ICE servers and connection policies. <code>iceServers</code> is an array of STUN and/or TURN server configurations used to help peers (ICE candidates) discover the best network path to each other.</p>
+            <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <pre class="code-js"><code class="language-js">var conn = new RTCPeerConnection(conf);
+
+conn.ontrack = function(event) {
+  const stream = event.streams[0];
+  // use stream here
+};</code></pre>
+            </div>
+            <p>The <code>ontrack</code> event is fired when the remote peer adds a media track (such as audio or video) to the connection. The incoming media is accessible through the <code>event.streams</code> array, usually as <code>event.streams[0]</code>.</p>
+            <h3>RTCPeerConnection Setup Process Between Peers</h3>
+            <p>The setup process differs slightly depending on whether you're the caller (initiator) or the callee (responder):</p>
+            <ol>
+                <li><strong>Register onicecandidate Handler:</strong> Each peer listens for ICE candidates (network paths). As candidates are discovered, they're sent to the remote peer via the signaling server.</li>
+                <li><strong>Register ontrack Handler:</strong> Handles incoming media from the remote peer.</li>
+                <li><strong>Handle Signaling Messages:</strong> Messages from the signaling server may contain:
+                    <ul>
+                        <li><code>RTCSessionDescription</code> → use <code>setRemoteDescription()</code> for adding it to RTCPeerConnection object</li>
+                        <li><code>RTCIceCandidate</code> → use <code>addIceCandidate()</code> for adding it to RTCPeerConnection object</li>
+                    </ul>
+                </li>
+                <li><strong>Capture and Add Local Media:</strong> Use <code>getUserMedia()</code> to get camera/mic input. Add tracks to the peer connection.</li>
+                <li><strong>Offer/Answer Negotiation:</strong> This is the step where the flow gets different for the caller and the callee.
+                    <p><strong>Caller:</strong></p>
+                    <ul>
+                        <li>Starts with calling the <code>createOffer()</code> method.</li>
+                        <li>Sets local description with <code>setLocalDescription()</code></li>
+                        <li>Sends offer to callee via signaling.</li>
+                    </ul>
+                    <p><strong>Callee:</strong></p>
+                    <ul>
+                        <li>Waits for offer.</li>
+                        <li>Sets remote description</li>
+                        <li>Calls <code>createAnswer()</code></li>
+                        <li>Sets local description</li>
+                        <li>Send answer back</li>
+                    </ul>
+                </li>
+            </ol>
+            <p>You should check RTCPeerConnection APIs properties, event handlers, and methods at: <a href="https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection" target="_blank">https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection</a></p>
+            <h3>Let's Try Establishing a Connection</h3>
+            <p><strong>Note:</strong> Install <code>ws</code> and <code>http-server</code> from npm.</p>
+            <p>First create a websocket server (signalling server), <code>server.js</code>:</p>
+            <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <pre class="code-js"><code class="language-js">import { WebSocketServer } from 'ws';
+
+const wss = new WebSocketServer({ port: 9090 });
+
+wss.on('connection', socket => {
+  console.log('Client connected');
+
+  socket.on('message', message => {
+    console.log('Received:', message);
+    socket.send(JSON.stringify({ type: "login", success: true }));
+  });
+});</code></pre>
+            </div>
+            <p>Create an <code>index.html</code> file, which will have 2 buttons: one for login and other for the username of the peer we want to connect to:</p>
+            <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <pre class="code-html"><code class="language-html">&lt;html lang = "en"&gt; 
+   &lt;head&gt; 
+      &lt;meta charset = "utf-8" /&gt; 
+   &lt;/head&gt;
+
+   &lt;body&gt; 
+
+      &lt;div&gt; 
+         &lt;input type = "text" id = "loginInput" /&gt; 
+         &lt;button id = "loginBtn"&gt;Login&lt;/button&gt; 
+      &lt;/div&gt; 
+
+      &lt;div&gt; 
+         &lt;input type = "text" id = "otherUsernameInput" /&gt;
+         &lt;button id = "connectToOtherUsernameBtn"&gt;Establish connection&lt;/button&gt; 
+      &lt;/div&gt; 
+
+      &lt;script type="module" src = "index.js"&gt;&lt;/script&gt;
+
+   &lt;/body&gt;
+
+&lt;/html&gt;</code></pre>
+            </div>
+            <p>Now we'll create an <code>index.js</code> file where we will first connect to our signaling server. When user logins, RTCPeerConnection object is created and setup <code>onicecandidate</code> handler which sends all found ICE candidates to the other peer.</p>
+            <img class="content-image" src="https://miro.medium.com/v2/resize:fit:720/format:webp/1*e2ioLdSAo2xu0aJZ8ul2WQ.png">
+            <p>Now we have to create an offer to the other peer. Add the following code in your <code>index.js</code> file:</p>
+            <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <pre class="code-js"><code class="language-js">// Setup a peer connection with another user
+connectToOtherUsernameBtn.addEventListener("click", async () => {
+  const otherUsername = otherUsernameInput.value;
+  connectedUser = otherUsername;
+
+  if (otherUsername.length > 0) {
+    try {
+      const offer = await myConnection.createOffer();
+      await myConnection.setLocalDescription(offer);
+
+      send({
+        type: "offer",
+        offer: offer
+      });
+    } catch (error) {
+      alert("An error occurred while creating the offer.");
+      console.error(error);
+    }
+  }
+});
+
+// When somebody wants to call us
+async function onOffer(offer, name) {
+  connectedUser = name;
+
+  try {
+    await myConnection.setRemoteDescription(new RTCSessionDescription(offer));
+    const answer = await myConnection.createAnswer();
+    await myConnection.setLocalDescription(answer);
+
+    send({
+      type: "answer",
+      answer: answer
+    });
+  } catch (error) {
+    alert("An error occurred while handling the offer.");
+    console.error(error);
+  }
+}
+
+// When another user answers our offer
+async function onAnswer(answer) {
+  try {
+    await myConnection.setRemoteDescription(new RTCSessionDescription(answer));
+  } catch (error) {
+    console.error("Error setting remote description from answer:", error);
+  }
+}
+
+// When we got an ICE candidate from another user
+async function onCandidate(candidate) {
+  try {
+    await myConnection.addIceCandidate(new RTCIceCandidate(candidate));
+  } catch (error) {
+    console.error("Error adding received ICE candidate:", error);
+  }
+}</code></pre>
+            </div>
+            <p>By clicking on the Establish Connection button, we make SDP offer to the peer.</p>
+            <h2>MediaStream API</h2>
+            <p><code>getUserMedia</code> API, also known as MediaStream API, has the following functionalities:</p>
+            <ul>
+                <li>Provides access to stream object (video and audio).</li>
+                <li>Manages the selection of media devices incase there are multiple of them.</li>
+                <li>Provides security by always asking the user for permission before accessing their media devices.</li>
+            </ul>
+            <p><strong>NOTE:</strong> Each MediaStream object includes several MediaStreamTrack objects. They represent video and audio from different input devices. Each MediaStreamTrack object may include several channels (right and left audio channels). These are the smallest parts defined by the MediaStream API.</p>
+            <p>Once we have captured the MediaStream object via <code>getUserMedia()</code>, there are two primary ways we can use it:</p>
+            <p><strong>Render MediaStream Locally</strong> i.e. display the captured media directly in the browser (Video/Audio Element):</p>
+            <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <pre class="code-js"><code class="language-js">const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+const video = document.querySelector('video');
+video.srcObject = stream;</code></pre>
+            </div>
+            <p><strong>Send MediaStream to a Remote Peer</strong> (RTCPeerConnection):</p>
+            <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <pre class="code-js"><code class="language-js">const peerConn = new RTCPeerConnection();
+stream.getTracks().forEach(track => peerConn.addTrack(track, stream));</code></pre>
+            </div>
+            <h3>Let's Use This API in a Simple Manner</h3>
+            <p><code>index.html</code>:</p>
+            <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <pre class="code-html"><code class="language-html">&lt;html&gt;
+ 
+   &lt;head&gt; 
+      &lt;meta charset = "utf-8"&gt; 
+   &lt;/head&gt;
+
+   &lt;body&gt; 
+      &lt;video autoplay&gt;&lt;/video&gt; 
+      &lt;script src = "index.js"&gt;&lt;/script&gt; 
+   &lt;/body&gt; 
+ 
+&lt;/html&gt;</code></pre>
+            </div>
+            <p><code>index.js</code>:</p>
+            <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <pre class="code-js"><code class="language-js">async function initUserMedia() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    alert("Error. WebRTC is not supported!");
+    return;
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    const video = document.querySelector('video');
+    video.srcObject = stream;
+  } catch (err) {
+    console.error("Error accessing media devices.", err);
+  }
+}
+
+initUserMedia();</code></pre>
+            </div>
+            <p>Now you can see your face by opening <code>index.html</code>.</p>
+            <p>Incase you are facing issues and not able to see your face by directly opening <code>index.html</code>, you can try one of following ways:</p>
+            <ul>
+                <li>Run <code>npm install http-server -g</code>, then run <code>http-server</code></li>
+                <li>If you have python installed, run <code>python -m http.server</code></li>
+            </ul>
+            <p>You should check MediaStream APIs properties, event handlers, and methods at: <a href="https://developer.mozilla.org/en-US/docs/Web/API/MediaStream" target="_blank">https://developer.mozilla.org/en-US/docs/Web/API/MediaStream</a></p>
+            <h2>RTCDataChannel</h2>
+            <p>Along with media streams, one may also want to send additional data. This can be done using RTCDataChannel API. It creates a channel:</p>
+            <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <pre class="code-js"><code class="language-js">var peerConn = new RTCPeerConnection(); 
+
+//establish peer connection 
+
+var dataChannel = peerConnection.createDataChannel("myChannel", dataChannelOptions); 
+
+// start sending direct messages to another peer</code></pre>
+            </div>
+            <p>Apart from this everything is taken care of by the browser and this stays until the RTCPeerConnection object is closed.</p>
+            <p>You should check RTCDataChannel APIs properties, event handlers, and methods at: <a href="https://developer.mozilla.org/en-US/docs/Web/API/RTCDataChannel" target="_blank">https://developer.mozilla.org/en-US/docs/Web/API/RTCDataChannel</a></p>
+        </div>
+        <br>
+        <hr>
+        <br>
+        <p>Thanks for reading!</p>
+    </div>
+    <script>
+    function copyCode(btn) {
+        const codeBlock = btn.nextElementSibling.querySelector('code');
+        const text = codeBlock ? codeBlock.innerText || codeBlock.textContent : '';
+        navigator.clipboard.writeText(text);
+        btn.textContent = "Copied!";
+        setTimeout(() => btn.textContent = "Copy", 1200);
+    }
+    </script>
+</body>
+</html>
