@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="../../images/profile.jpg" type="image/jpeg">
+    <title>Building a WebRTC Signaling Server</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.css">
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/prism.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-javascript.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-markup.min.js"></script>
+    <link rel="stylesheet" href="../../styles/main.css">
+</head>
+<body>
+    <div class="container">
+        <div class="content-header">
+            <h1 class="content-page-title">Get Started with WebRTC (2/n)</h1>
+            <div class="content-meta">November 13, 2025</div>
+            <a href="../../techblogs.html" class="back-link">← back to tech blogs</a>
+        </div>
+        
+        <div class="content-body">
+            <p>Now let's begin with creating our first basic signaling server.</p> <p> In case, it's your first time for WebRTC consider reading the <a href="https://ayushman.blog/blogs/tech-blogs/rtc-1.html">previous blog</a> and then continue with this one.</p>
+            
+            <p>So nearly all of the WebRTC applications not only communicate through audio and video but through other means as well, like text messages. Before setting up for communication we have to first know where the other person is located on the web. This is done using RTCPeerConnection object.</p>
+            
+            <p>Before starting with the WebRTC stuff, users need to exchange the contact information. Users basically setup connection (signaling) and agree on how to communicate like what formats, protocols, and codecs to use (negotiation).</p>
+            
+            <p>Signaling and negotiation consists of the following steps:</p>
+            <ul><i>
+                <li>Gather ICE candidates</li>
+                <li>User chooses a Peer</li>
+                <li>Send a Connection Request</li>
+                <li>Peer Accepts or Decline</li>
+                <li>Connection Initiation : First user creates a RTCPeerConnection object to start the connection</li>
+                <li>Exchange System Info : Details about devices like supported codecs, browser versions, and hardware capabilities</li>
+                <li>Exchange Location Info : IP addresses and ports</li>
+                <li>Connection Success or Failure</li>
+            </i>
+            </ul>
+            
+            <p><strong>IMPORTANT NOTE:</strong> ICE Candidate does not refer to the peers/users, it is a possible route or network address that your device can use to reach another device. Each ICE candidate includes: <i>IP address</i>, <i>Port number</i>, <i>Transport Protocol</i> (usually UDP or TCP), and <i>Candidate type</i> (host, server reflexive, or relay).</p>
+            
+            <p>Also remember, WebRTC <strong>does not define how signaling should be done</strong>. That means:</p>
+            <ul>
+                <li>You can use <strong>WebSockets</strong>, <strong>HTTP</strong>, <strong>MQTT</strong>, or any other protocol.</li>
+                <li>You need to build your own <strong>signaling server</strong> to handle this exchange.</li>
+            </ul>
+
+            <h1><strong>Building our Signaling Server</strong></h1>
+            <p>We will be continuing from the code which we wrote in our <a href="https://ayushman.blog/blogs/tech-blogs/rtc-1.html">last blog</a>.</p>
+            
+            <p>First we have to make sure that we are storing all the connected users somewhere, so in our signaling server (server.js), add the following line of code:</p>
+            <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <pre class="code-js"><code class="language-js">import { WebSocketServer } from 'ws';
+
+const wss = new WebSocketServer({ port: 9090 });
+
+//all users which are connected will be stored
+const users = {};</code></pre>
+            </div>
+            
+            <p>Now we have to deal with incoming messages from the client. Like if the user wants to login, he will send a message whose type is "login" :</p>
+            <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <pre class="code-js"><code class="language-js">socket.on('message', message => {
+    const data = JSON.parse(message);
+
+    switch (data.type) {
+      case "login":
+        console.log("User logged : ", data.name);
+
+        if(users[data.name]){
+          socket.send(JSON.stringify({type: "login" , success: false}));
+        } else {
+          users[data.name] = socket;
+          socket.name = data.name;
+          socket.send(JSON.stringify({
+            type : "login",
+            success : true
+          }))
+        }
+        break;
+      
+      default :
+        socket.send(JSON.stringify({type: "error" , message : "Command not found" + data.type}));
+        break;  
+    }</code></pre>
+            </div>
+            
+            <p>Here we are checking if there is already existing user with that name, if so then success is set to false. If not then we add the username as a key to connection object (users = { }). Notice that we are ensuring that messages are sent in JSON format by using JSON.stringify( ).</p>
+            
+            <p>We should also handle the case when the user disconnects. When the close event is fired we should delete the user.</p>
+            <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <pre class="code-js"><code class="language-js">socket.on('close', () => {
+    if(socket.name){
+      delete users[socket.name];
+    };
+  });</code></pre>
+            </div>
+            
+            <p>After successful login, to connect with other peers, user has to make an offer. Add the following case for handling offer:</p>
+            <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <pre class="code-js"><code class="language-js">case "offer": {
+        console.log("Sending an offer to : ", data.name);
+        const conn = users[data.name];
+
+        if(conn){
+          socket.otherName = data.name;
+          conn.otherName = socket.name;
+          conn.send(JSON.stringify({
+            type : "offer",
+            offer : data.offer,
+            name : socket.name
+          }))
+        }
+        break;
+      };</code></pre>
+            </div>
+            
+            <p>Here, first we check whether the user that we are trying to call exists or not. If it exists we send him the <b>offer details</b>. Notice that we are also adding the <b>otherName</b> to the connection object so that we can find it later easily.</p>
+            
+            <p>Remember, for ease of understanding: socket is for us (the client) and conn is for the other user that we are trying to connect to.</p>
+            
+            <p><strong>NOTE:</strong> Here we are creating a scope for this case, because we are creating a variable conn that we want to use here. And as you will see further we are creating variable with the same name in other cases as well. So to avoid conflict, we are creating scopes.</p>
+            
+            <p>Now lets create the answer handler, which will be almost as same as offer handler:</p>
+            <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <pre class="code-js"><code class="language-js">case "answer": {
+        console.log("Sending answer to : ", data.name);
+        const conn = users[data.name];
+
+        if(conn){
+          socket.otherName = data.name;
+          conn.send(JSON.stringify({
+            type : "answer",
+            answer : data.answer,
+          }));
+        };
+        break;
+      };</code></pre>
+            </div>
+            
+            <p><strong>NOTE:</strong> Here, "offer" and "answer" are simple strings (used as a placeholder) but in a real WebRTC app, they carry the SDP data (Session Description Protocol) that defines how the peers will communicate.</p>
+            
+            <p>Now we have to handle ICE candidates (do you remember what these actually are?):</p>
+            
+            <p>Here also we follow the same technique, the only difference is that, unlike offer/answer exchange (which happens once per connection setup), <strong>ICE candidates can be sent multiple times</strong> and <strong>in any order</strong> because:</p>
+            <ul>
+                <li>A device may discover new candidates over time.</li>
+                <li>Candidates are sent as soon as they're found. There's no fixed sequence.</li>
+            </ul>
+            <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <pre class="code-js"><code class="language-js">case "candidate" : {
+        console.log('Sending candidate to : ', data.name);
+        const conn = users[data.name];
+
+        if(conn){
+          conn.send(JSON.stringify({
+            type : "candidate",
+            candidate : data.candidate
+          }))
+        }
+        break;
+      }</code></pre>
+            </div>
+            
+            <p>Add the following code to handle the case where someone may disconnects / leaves.</p>
+            <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <pre class="code-js"><code class="language-js">case "leave" : {
+        console.log('Disconnecting from : ', data.name);
+        const conn = users[data.name];
+        socket.otherName = null;
+
+        if(conn){
+          conn.otherName = null;
+          conn.send(JSON.stringify({
+            type : "leave",
+          }));
+        };
+        break;
+      }</code></pre>
+            </div>
+            
+            <p>If a user disconnects, the signaling server should detect the disconnection and inform the other peer that the user is gone. The other peer should clean up their connection and close their RTCPeerConnection.[]</p>
+            <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <pre class="code-js"><code class="language-js">socket.on('close', () => {
+    if(socket.name){
+      delete users[socket.name];
+
+      if(socket.otherName){
+        console.log('Disconnecting from : ', data.name);
+        const conn = users[socket.otherName];
+        socket.otherName = null;
+
+        if(conn){
+          conn.otherName = null;
+          conn.send(JSON.stringify({
+            type : "leave",
+          }));
+        };
+      }
+    };
+  });</code></pre>
+            </div>
+            
+            <p>So our complete signaling server looks like:</p>
+            <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <pre class="code-js"><code class="language-js">import { WebSocketServer } from 'ws';
+
+const wss = new WebSocketServer({ port: 9090 });
+
+const users = {};
+
+wss.on('connection', socket => {
+  console.log('Client connected');
+
+  socket.on('message', message => {
+    const data = JSON.parse(message);
+
+    switch (data.type) {
+      case "login":
+        console.log("User logged : ", data.name);
+
+        if(users[data.name]){
+          socket.send(JSON.stringify({type: "login" , success: false}));
+        } else {
+          users[data.name] = socket;
+          socket.name = data.name;
+          socket.send(JSON.stringify({
+            type : "login",
+            success : true
+          }))
+        }
+        break;
+      
+      case "offer": {
+        console.log("Sending an offer to : ", data.name);
+        const conn = users[data.name];
+
+        if(conn){
+          socket.otherName = data.name;
+          conn.otherName = socket.name;
+          conn.send(JSON.stringify({
+            type : "offer",
+            offer : data.offer,
+            name : socket.name
+          }))
+        }
+        break;
+      };
+      
+      case "answer": {
+        console.log("Sending answer to : ", data.name);
+        const conn = users[data.name];
+
+        if(conn){
+          socket.otherName = data.name;
+          conn.send(JSON.stringify({
+            type : "answer",
+            answer : data.answer,
+          }));
+        };
+        break;
+      };
+
+      case "candidate" : {
+        console.log('Sending candidate to : ', data.name);
+        const conn = users[data.name];
+
+        if(conn){
+          conn.send(JSON.stringify({
+            type : "candidate",
+            candidate : data.candidate
+          }))
+        }
+        break;
+      }
+
+      case "leave" : {
+        console.log('Disconnecting from : ', data.name);
+        const conn = users[data.name];
+        socket.otherName = null;
+
+        if(conn){
+          conn.otherName = null;
+          conn.send(JSON.stringify({
+            type : "leave",
+          }));
+        };
+        break;
+      }
+
+      default :
+        socket.send(JSON.stringify({type: "error" , message : "Command not found" + data.type}));
+        break;  
+    }
+    
+  });
+
+  socket.on('close', () => {
+    if(socket.name){
+      delete users[socket.name];
+
+      if(socket.otherName){
+        console.log('Disconnecting from : ', data.name);
+        const conn = users[socket.otherName];
+        socket.otherName = null;
+
+        if(conn){
+          conn.otherName = null;
+          conn.send(JSON.stringify({
+            type : "leave",
+          }));
+        };
+      }
+    };
+  });
+});</code></pre>
+            </div>
+            <br>
+            <h1><b>Building our Chat Functionality</b></h1>
+            <p>Now for being able to chat we need an input element to write our messages. So we'll update our index.html:</p>
+            <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <pre class="code-html"><code class="language-html">&lt;html lang = "en"&gt; 
+   &lt;head&gt; 
+      &lt;meta charset = "utf-8" /&gt; 
+   &lt;/head&gt;
+	
+   &lt;body&gt; 
+	
+      &lt;div&gt; 
+         &lt;input type = "text" id = "loginInput" /&gt; 
+         &lt;button id = "loginBtn"&gt;Login&lt;/button&gt; 
+      &lt;/div&gt; 
+	
+      &lt;div&gt; 
+         &lt;input type = "text" id = "otherUsernameInput" /&gt;
+         &lt;button id = "connectToOtherUsernameBtn"&gt;Establish connection&lt;/button&gt; 
+      &lt;/div&gt; 
+
+      &lt;div&gt; 
+         &lt;input type = "text" id = "msgInput" /&gt; 
+         &lt;button id = "sendMsgBtn"&gt;Send text message&lt;/button&gt; 
+      &lt;/div&gt; 
+		
+      &lt;script type="module" src = "index.js"&gt;&lt;/script&gt;
+		
+   &lt;/body&gt;
+	
+&lt;/html&gt;</code></pre>
+            </div>
+            
+            <p>Now first we'll update our index.js as follows to have access to newly created nodes in our DOM:</p>
+            <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <pre class="code-js"><code class="language-js">const connection = new WebSocket('ws://localhost:9090');
+let name = "";
+
+const loginInput = document.querySelector('#loginInput');
+const loginBtn = document.querySelector('#loginBtn');
+const otherUsernameInput = document.querySelector('#otherUsernameInput');
+const connectToOtherUsernameBtn = document.querySelector('#connectToOtherUsernameBtn');
+const msgInput = document.querySelector('#msgInput');
+const sendMsgBtn = document.querySelector('#sendMsgBtn');
+let connectedUser, myConnection, dataChannel;</code></pre>
+            </div>
+            
+            <p>Now in our index.js we just have to implement openDataChannel( ) function, which will be responsible for creating our data channel and also add an event listener to the sendMsgBtn:</p>
+            <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <pre class="code-js"><code class="language-js">async function openDataChannel() {
+  dataChannel = myConnection.createDataChannel("myDataChannel");
+  wireDataChannel(dataChannel);
+};
+
+function wireDataChannel(channel){
+  channel.onerror = error => {
+    console.log("Error : ", error);
+  }
+
+  channel.onmessage = event => {
+    console.log("Got message:", event.data);
+  }
+
+  channel.onopen = () => {
+    console.log("DataChannel is open");
+  };
+
+  channel.onclose = () => {
+    console.log("DataChannel is closed");
+  };
+}
+
+sendMsgBtn.addEventListener("click" , () => {
+  const val = msgInput.value;
+  if (dataChannel && dataChannel.readyState === "open") {
+    dataChannel.send(val);
+    console.log("Sent message:", val);
+  } else {
+    console.warn("DataChannel is not open");
+  }
+})</code></pre>
+            </div>
+            
+            <p>Here, the function openDataChannel( ) initializes a new DataChannel named <code>myDataChannel</code> on our existing WebRTC connection (<code>myConnection</code>).</p>
+            
+            <p>And the function wireDataChannel( ) attaches event listeners to handle the DataChannel's lifecycle and communication.</p>
+            
+            <p>So our final index.js would be like follows:</p>
+            <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <pre class="code-js"><code class="language-js">const connection = new WebSocket('ws://localhost:9090');
+let name = "";
+
+const loginInput = document.querySelector('#loginInput');
+const loginBtn = document.querySelector('#loginBtn');
+const otherUsernameInput = document.querySelector('#otherUsernameInput');
+const connectToOtherUsernameBtn = document.querySelector('#connectToOtherUsernameBtn');
+const msgInput = document.querySelector('#msgInput');
+const sendMsgBtn = document.querySelector('#sendMsgBtn');
+let connectedUser, myConnection, dataChannel;
+
+loginBtn.addEventListener("click", () => {
+  const name = loginInput.value;
+  if (name.length > 0) {
+    send({ type: "login", name : name });
+  }
+});
+ 
+ function send(message) { 
+ 
+  if (connectedUser) { 
+     message.name = connectedUser; 
+  } 
+   
+  connection.send(JSON.stringify(message)); 
+};
+
+function onLogin(success) {
+  if (!success) {
+    alert("Oops... try a different username");
+    return;
+  }
+
+  const configuration = {
+    iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+  };
+
+  myConnection = new RTCPeerConnection(configuration);
+  console.log("RTCPeerConnection object was created");
+
+  myConnection.onicecandidate = event => {
+    if (event.candidate) {
+      send({ type: "candidate", candidate: event.candidate });
+    }
+  };
+
+  // CALLEE: receive data channel created by caller
+  myConnection.ondatachannel = (event) => {
+    dataChannel = event.channel;
+    wireDataChannel(dataChannel);
+    console.log("Received data channel");
+  };
+}
+
+  //creating data channel
+async function openDataChannel() {
+  dataChannel = myConnection.createDataChannel("myDataChannel");
+  wireDataChannel(dataChannel);
+};
+
+function wireDataChannel(channel){
+  channel.onerror = error => {
+    console.log("Error : ", error);
+  }
+
+  channel.onmessage = event => {
+    console.log("Got message:", event.data);
+  }
+
+  channel.onopen = () => {
+    console.log("DataChannel is open");
+  };
+
+  channel.onclose = () => {
+    console.log("DataChannel is closed");
+  };
+}
+
+connection.onopen = function () { 
+    console.log("Connected"); 
+ };
+   
+ connection.onerror = function (err) { 
+    console.log("Got error", err); 
+ };
+   
+ connection.onmessage = async message => {
+  //   const text = await message;
+    const data = JSON.parse(message.data);
+    console.log('WebSocket received:', data);
+    switch (data.type) {
+      case "login":
+        onLogin(data.success);
+        break;
+      case "offer":
+        onOffer(data.offer, data.name);
+        break;
+      case "answer":
+        onAnswer(data.answer);
+        break;
+      case "candidate":
+        onCandidate(data.candidate);
+        break;
+      case "leave":
+        onLeave();
+        break;
+    }
+  };
+
+ // offer logic
+
+ // Setup a peer connection with another user
+connectToOtherUsernameBtn.addEventListener("click", async () => {
+    const otherUsername = otherUsernameInput.value;
+    connectedUser = otherUsername;
+  
+    if (otherUsername.length > 0) {
+      try {
+        openDataChannel();
+        const offer = await myConnection.createOffer();
+        await myConnection.setLocalDescription(offer);
+  
+        send({
+          type: "offer",
+          offer: offer
+        });
+      } catch (error) {
+        alert("An error occurred while creating the offer.");
+        console.error(error);
+      }
+    }
+  });
+  
+  // When somebody wants to call us
+  async function onOffer(offer, name) {
+    connectedUser = name;
+  
+    try {
+      await myConnection.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await myConnection.createAnswer();
+      await myConnection.setLocalDescription(answer);
+  
+      send({
+        type: "answer",
+        answer: answer
+      });
+    } catch (error) {
+      alert("An error occurred while handling the offer.");
+      console.error(error);
+    }
+  }
+  
+  // When another user answers our offer
+  async function onAnswer(answer) {
+    try {
+      await myConnection.setRemoteDescription(new RTCSessionDescription(answer));
+    } catch (error) {
+      console.error("Error setting remote description from answer:", error);
+    }
+  }
+  
+  // When we got an ICE candidate from another user
+  async function onCandidate(candidate) {
+    try {
+      await myConnection.addIceCandidate(new RTCIceCandidate(candidate));
+    } catch (error) {
+      console.error("Error adding received ICE candidate:", error);
+    }
+  }
+
+//handles the case when the user disconnects (self explanatory) 
+  function onLeave() {
+    connectedUser = null;
+    if (dataChannel) dataChannel.close();
+    if (myConnection) myConnection.close();
+    dataChannel = null;
+    myConnection = null;
+  }
+
+  sendMsgBtn.addEventListener("click" , () => {
+    const val = msgInput.value;
+    if (dataChannel && dataChannel.readyState === "open") {
+      dataChannel.send(val);
+      console.log("Sent message:", val);
+    } else {
+      console.warn("DataChannel is not open");
+    }
+  })</code></pre>
+            </div>
+            <p>When a user sends the message to another user, the browser console should look like :</p>
+            <p>User :</p>
+            <img class="content-image" src="https://miro.medium.com/v2/resize:fit:1100/format:webp/1*MDsUAGqfwso-oBDeJPS1lw.png" />
+            <p>Another User :</p>
+            <img class="content-image" src="https://miro.medium.com/v2/resize:fit:1100/format:webp/1*LdMkURe_O_it5SOKF9YW7A.png" />
+        </div>
+        <br>
+        <hr>
+        <br>
+        <p>Thanks for reading!</p>
+    </div>
+    <script>
+    function copyCode(btn) {
+        const codeBlock = btn.nextElementSibling.querySelector('code');
+        const text = codeBlock ? codeBlock.innerText || codeBlock.textContent : '';
+        navigator.clipboard.writeText(text);
+        btn.textContent = "Copied!";
+        setTimeout(() => btn.textContent = "Copy", 1200);
+    }
+    </script>
+</body>
+</html>
+```
