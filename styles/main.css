@@ -419,3 +419,139 @@ pre::-webkit-scrollbar-thumb:hover {
     border-radius: 8px;
     border: none;
 }
+
+/* following css is for connect me button */
+
+/* --- Social Button Component --- */
+
+.social-container {
+    position: relative;
+    /* Matches height of nav-buttons */
+    height: 50px; 
+    display: inline-flex;
+    vertical-align: middle;
+    margin-top: 20px;
+}
+
+/* 1. Primary Button Styling 
+   matches .nav-button style from your file */
+.primary-btn {
+    position: relative;
+    min-width: 160px;
+    height: 100%;
+    /* Transparent or White to match page bg */
+    background-color: transparent; 
+    color: black;
+    /* 1px solid black to match nav-button */
+    border: 1px solid black; 
+    /* 4px radius to match nav-button */
+    border-radius: 4px; 
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-size: 16px;
+    font-family: inherit;
+    /* Slower animation duration (0.5s) */
+    transition: all 0.5s ease; 
+    z-index: 5;
+}
+
+/* Hover effect matches .nav-button:hover */
+.primary-btn:hover {
+    background-color: oklch(64.8% 0.2 131.684);
+    color: black;
+}
+
+/* 2. The Hidden Drawer 
+   This container expands. We add border-radius here to fix the "sharp corners" glitch. */
+.social-drawer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 0;
+    /* Clips the content to rounded corners during animation */
+    overflow: hidden; 
+    display: flex;
+    /* Border radius applied to the drawer itself ensures it never looks sharp */
+    border-radius: 4px; 
+    /* Slower animation curve */
+    transition: width 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+    z-index: 10;
+    background: transparent;
+}
+
+/* 3. Individual Social Icons */
+.social-btn {
+    width: 50px; /* Matches container height */
+    height: 100%;
+    /* Dark background using your text color #333 */
+    background-color: #333; 
+    color: white;
+    border: none;
+    /* Thin divider line */
+    border-right: 1px solid rgba(255, 255, 255, 0.1); 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    outline: none;
+    
+    /* Animation Initial State */
+    opacity: 0;
+    transform: translateX(-20px);
+    
+    /* Transitions */
+    transition: 
+        opacity 0.6s cubic-bezier(0.23, 1, 0.32, 1),
+        transform 0.6s cubic-bezier(0.23, 1, 0.32, 1),
+        background-color 0.01s;
+}
+
+.social-btn:last-child {
+    border-right: none;
+}
+
+/* Hovering a social icon uses your Accent Color */
+.social-btn:hover {
+    background-color: oklch(64.8% 0.2 131.684);
+    color: black; /* Text becomes black for readability on green */
+}
+
+/* Click scale effect */
+.social-btn:active svg {
+    transform: scale(0.85);
+    transition: transform 0.1s;
+}
+
+.social-container svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* --- Interaction Logic --- */
+
+/* When hovering the container: Hide the "Let's Connect" button */
+.social-container:hover .primary-btn {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* When hovering the container: Expand the Drawer */
+.social-container:hover .social-drawer {
+    width: 200px; /* 4 buttons * 50px width */
+}
+
+/* When hovering the container: Reveal the Icons */
+.social-container:hover .social-btn {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+/* Staggered Delays for a smooth entrance */
+.social-container:hover .social-btn:nth-child(1) { transition-delay: 0s; }
+.social-container:hover .social-btn:nth-child(2) { transition-delay: 0.1s; }
+.social-container:hover .social-btn:nth-child(3) { transition-delay: 0.2s; }
+.social-container:hover .social-btn:nth-child(4) { transition-delay: 0.3s; }
