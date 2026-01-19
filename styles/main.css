@@ -466,23 +466,25 @@ pre::-webkit-scrollbar-thumb:hover {
 
 /* 2. The Hidden Drawer 
    This container expands. We add border-radius here to fix the "sharp corners" glitch. */
+/* 2. The Hidden Drawer */
 .social-drawer {
     position: absolute;
     top: 0;
-    left: 0;
+    
+    left: 50%;
+    transform: translateX(-50%);
+    
     height: 100%;
     width: 0;
-    /* Clips the content to rounded corners during animation */
+    
     overflow: hidden; 
-    display: flex;
-    /* Border radius applied to the drawer itself ensures it never looks sharp */
     border-radius: 4px; 
-    /* Slower animation curve */
+    
+    display: flex;
     transition: width 0.6s cubic-bezier(0.23, 1, 0.32, 1);
     z-index: 10;
     background: transparent;
 }
-
 /* 3. Individual Social Icons */
 .social-btn {
     width: 50px; /* Matches container height */
