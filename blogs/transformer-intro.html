@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="../images/profile.jpg" type="image/jpeg">
+    <title>Understanding Transformers</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.css">
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/prism.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-javascript.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-markup.min.js"></script>
+    <!-- Added Python syntax highlighting for the new code blocks -->
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-python.min.js"></script>
+    <link rel="stylesheet" href="../styles/main.css">
+</head>
+<body>
+    <div class="container">
+        <div class="content-header">
+            <h1 class="content-page-title">Transformers : Builing Intuition</h1>
+            <div class="content-meta">March 22, 2026</div>
+            <a href="../blogs.html" class="back-link">← back to blogs</a>
+        </div>
+        
+        <div class="content-body">
+            <p>A transformer is a neural network architecture. It uses self-attention mechanisms to process sequential data in parallel, replacing old recurrent models like RNNs.</p>
+            
+            <p>First the data is divided into chunks. To process data in parallel means attending all the chunks of that data simultaneously. You can think of attention as capturing the context of the whole data and self-attention as: each chunk goes through all other chunks, which will help it understand its own meaning, hence self.</p>
+            
+            <img class="content-image" src="https://miro.medium.com/v2/resize:fit:640/format:webp/1*PaK50REWMQEExffK25Jy3A.png">
+
+            <p>So now let us go through the whole process and understand what exactly happens and how.</p>
+            
+            <p>So first, we give a sentence to the model and the model breaks that sentence into chunks, which are known as tokens, and this process is known as tokenization. Like for example, if in the GPT-5.x model we give the sentence “this is tokenization”, it breaks it down into 4 tokens: ‘this’, ‘ is’, ‘ token’, and ’ization’. You can play with the tokenizer for the OpenAI’s models at → <a href="https://platform.openai.com/tokenizer" target="_blank">https://platform.openai.com/tokenizer</a>.</p>
+            
+            <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <pre class="code-python"><code class="language-python"># First install tiktoken -> !pip install tiktoken -q
+
+import tiktoken
+import numpy as np
+
+text = "this is tokenization"
+tokens = tokenizer.encode(text)
+
+print(f"Text: '{text}'")
+print(f"Tokens: {tokens}")
+print(f"Number of tokens: {len(tokens)}")
+
+print("\nToken breakdown:")
+for token in tokens:
+    print(f"  {token} → '{tokenizer.decode([token])}'")</code></pre>
+            </div>
+            
+            <aside style="background: #f8f9fa; padding: 15px; border-left: 4px solid #007bff; margin: 20px 0;">
+                <p>💡 <strong>output :</strong></p>
+                <pre style="margin: 0; background: transparent; padding: 0;">Text: 'this is tokenization'
+Tokens: [576, 374, 4037, 2065]
+Number of tokens: 4
+Token breakdown:
+576 → 'this'
+374 → ' is'
+4037 → ' token'
+2065 → 'ization'</pre>
+            </aside>
+            
+            <p><strong>NOTE :</strong> The second and third token are : ‘ is’ , ‘ token’ and not ‘is’ , ‘token’ (notice the space).</p>
+            
+            <p>Every token has its own unique ID. These are the tokens that you see as one million token limits or 128k token limit in various models and these tokens are what you pay for when buying an AI subscription.</p>
+            
+            <p>So now we have successfully converted our sentences into an array of some token IDs like “this is tokenization” → [576, 374, 4037, 2065]. But these IDs are random. They don't know what they represent. So we need to know what these IDs mean. Here is where embeddings comes into the picture.</p>
+            
+            <p>So in general embedding means placing something inside another. In machine learning embedding means placing the meaning or the context of something into some identifier. In more technical terms, embedding is a collection of vectors which represent different aspects through which a token can be represented OR embedding is a mapping of tokens into vectors in a continuous space, where each vector encodes or represents the semantic or contextual information.</p>
+            
+            <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <pre class="code-python"><code class="language-python">import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
+
+# Simulating an embedding matrix
+vocab_size = 50000
+embedding_dim = 768  # GPT-2 size
+# Random embedding matrix (in reality, this is LEARNED)
+embedding_matrix = np.random.randn(vocab_size, embedding_dim) * 0.02
+print(f"Embedding matrix shape: {embedding_matrix.shape}")
+print(f"  → {vocab_size:,} tokens")
+print(f"  → {embedding_dim} dimensions per token")
+print(f"  → {vocab_size * embedding_dim:,} total parameters just for embeddings!")
+
+text = "this is tokenization"
+tokens = tokenizer.encode(text)
+
+print(f"Text: '{text}'")
+print(f"Token IDs: {tokens}")
+print()
+
+# Look up each token's embedding
+for token_id in tokens:
+    embedding = embedding_matrix[token_id]
+    print(f"Token {token_id} ('{tokenizer.decode([token_id])}')")
+    print(f"  → Embedding shape: {embedding.shape}")
+    print(f"  → First 10 values: {embedding[:10].round(3)}")
+    print()</code></pre>
+            </div>
+            
+            <aside style="background: #f8f9fa; padding: 15px; border-left: 4px solid #007bff; margin: 20px 0;">
+                <p>💡 <strong>output :</strong></p>
+                <pre style="margin: 0; background: transparent; padding: 0;">Embedding matrix shape: (50000, 768)
+→ 50,000 tokens
+→ 768 dimensions per token
+→ 38,400,000 total parameters just for embeddings
+
+Text: 'this is tokenization'
+Token IDs: [576, 374, 4037, 2065]
+
+Token 576 ('this')
+→ Embedding shape: (768,)
+→ First 10 values: [-0.015  0.014  0.051  0.004 -0.003 -0.016 -0.042 -0.015 -0.005  0.029]
+
+Token 374 (' is')
+→ Embedding shape: (768,)
+→ First 10 values: [-0.007  0.    -0.011  0.002  0.038 -0.034  0.021  0.011 -0.009 -0.001]
+
+Token 4037 (' token')
+→ Embedding shape: (768,)
+→ First 10 values: [-0.02   0.024 -0.031  0.002 -0.033  0.026 -0.002  0.021 -0.023 -0.025]
+
+Token 2065 ('ization')
+→ Embedding shape: (768,)
+→ First 10 values: [-0.019 -0.012  0.042  0.024 -0.016 -0.005  0.02   0.006 -0.014  0.03 ]</pre>
+            </aside>
+            
+            <p>Since now that we understand vectors, we can also conclude that similar meaning tokens will be nearby vectors in the multi-dimensional space.</p>
+            
+            <p>So till now we know that we give input to the model. The model first breaks down that input into tokens. Those tokens are converted into embeddings. But now we have a new problem as we know that the transformer model processes every token parallelly so it would be really hard for the model to understand the sequence of the words. The model sees the set of words not the sequence. For the model “the lion killed the elephant” and “the elephant killed the lion” are same. This “Permutation Invariance” leads to the loss of the meaning of the input. So it is needed to know the sequence of the words in the input.</p>
+            
+            <p>For knowing the token's position in a sequence, we use the following two sinusoidal equations:</p>
+            
+            <div style="text-align: center; margin: 20px 0; font-family: monospace; font-size: 1.1em;">
+                <p>PE<sub>(pos, 2i)</sub> = sin(pos / 10000<sup>2i/d<sub>model</sub></sup>)</p>
+                <p>PE<sub>(pos, 2i+1)</sub> = cos(pos / 10000<sup>2i/d<sub>model</sub></sup>)</p>
+            </div>
+            
+            <p>Where <i>pos</i> is the token's position and <i>d<sub>model</sub></i> is the embedding dimension.</p>
+            
+            <p>These values are deterministically calculated using these formulas and then added to the token's word embedding. This way the model knows not just what the token is but also where it appears in the sequence, with different dimensions encoding.</p>
+            
+            <p>Understand this by looking at the following graph :</p>
+            <img class="content-image" src="https://miro.medium.com/v2/resize:fit:720/format:webp/1*0IXaIjx9bl1wTwG3lXdIgA.png">
+            
+            <p>Here at position 0 the combination of the values of these four waves creates a unique value. If we go a little forward then we will get another four values from the waves that will create a unique set of values.</p>
+            
+            <p>Since we know that when the sentence was converted into tokens it was like an array of tokens. The first token is assigned the first set of values from these graphs, the second token is assigned the second set of values and so on. This is how the model knows the position of the token as these values are fixed and pre-calculated. The purpose of using multiple frequencies is to create a unique set, or let's say fingerprint, for every single position in a very high dimensional space.</p>
+
+            <p><b>RECAP :</b> Text → Tokens → Token IDs → Embeddings → + Positional Encoding → Final Input Matrix</p>
+            <p>Now each token has meaning and position. The next question is: how do tokens interact with each other? And we will get into that in the next part.</p>
+        </div>
+        <br>
+        <hr>
+        <br>
+        <p>Thanks for reading!</p>
+    </div>
+    <script>
+    function copyCode(btn) {
+        const codeBlock = btn.nextElementSibling.querySelector('code');
+        const text = codeBlock ? codeBlock.innerText || codeBlock.textContent : '';
+        navigator.clipboard.writeText(text);
+        btn.textContent = "Copied!";
+        setTimeout(() => btn.textContent = "Copy", 1200);
+    }
+    </script>
+</body>
+</html>
