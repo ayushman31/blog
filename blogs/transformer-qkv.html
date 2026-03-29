@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="../images/profile.jpg" type="image/jpeg">
+    <title>Transformers : Understanding Queries, Keys, & Values and the Math behind it</title>
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1/themes/prism-tomorrow.css">
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/prism.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-javascript.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-markup.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-python.min.js"></script>
+    
+    <script>
+      MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']]
+        }
+      };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+
+    <link rel="stylesheet" href="../styles/main.css">
+</head>
+<body>
+    <div class="container">
+        <div class="content-header">
+            <h1 class="content-page-title">Transformers : Understanding Queries, Keys, & Values and the Math behind it</h1>
+            <div class="content-meta">March 29, 2026</div>
+            <a href="../blogs.html" class="back-link">← back to blogs</a>
+        </div>
+        
+        <div class="content-body">
+            <p>Till now we understand how text is converted into final input matrix :</p>
+            <p style="text-align: center; font-family: monospace; background: #f4f4f4; padding: 10px; border-radius: 5px;">
+                Text → Tokens → Token IDs → Embeddings → + Positional Encoding → Final Input Matrix
+            </p>
+            <p><em>(if you didn’t read the previous part → <a href="https://ayushman.blog/blogs/transformer-intro.html" target="_blank">Transformers : Builing Intuition</a>)</em></p>
+            
+            <p>We also know that transformers use self-attention mechanisms to process sequential data in parallel. But why do we need these self-attention mechanisms? It is because words often have more than one meaning and their meaning depends on the context of the sentence or the words surrounding that word in the sentence. So self-attention helps the model to get rid of ambiguities and understand how the word relates to the context.</p>
+            
+            <p>So now let us understand how this works.</p>
+            
+            <p>Every token has 3 roles: <strong>Query (Q)</strong>, <strong>Key (K)</strong>, and <strong>Value (V)</strong>.</p>
+            <ul>
+                <li><strong>Query</strong> → what is the word looking for</li>
+                <li><strong>Key</strong> → what does it contain</li>
+                <li><strong>Value</strong> → what info this word contributes</li>
+            </ul>
+            
+            <p>But we don't understand anything by the above definition. So now let's understand it mathematically.</p>
+            
+            <p>Think of query, key, and value as separate vector spaces all together. These vector spaces are always projected into lower dimensions for faster computations that we will see below.</p>
+            
+            <p>Take an example of the word "cat". Let's say the embedding of the word "cat" is: $x = [1,2,3,4]$. We want to project this into 2-dimensional Q, K, V vectors. For that we multiply the embedding of the token with some pre-learned weight matrices inside the transformer. Let's say the weights are $W_q$, $W_k$, and $W_v$. So,</p>
+            
+            $$Q=xW_q, \quad K=xW_k, \quad V=xW_v$$
+            
+            <p>Basically,</p>
+            <ul>
+                <li><strong>$W_q$</strong> : The matrix that transforms the token embedding into a Query vector</li>
+                <li><strong>$W_k$</strong> : The matrix that transforms the token embedding into a Key vector</li>
+                <li><strong>$W_v$</strong> : The matrix that transforms our token embedding into a Value vector</li>
+            </ul>
+            
+            <p>Each of these matrices is learned during training. So here in our example each of them will be a 4x2 matrix. For example let's pick simple numbers for illustration :</p>
+            
+            <p style="font-family: monospace; background: #f8f9fa; padding: 10px; border-left: 4px solid #6c757d;">
+                Wq = [ 1 0 , 0 1 , 1 1 , 0 1 ]<br>
+                Wk = [ 1 1 , 1 0 , 0 1 , 1 0 ]<br>
+                Wv = [ 0 1 , 1 1 , 1 0 , 0 1 ]
+            </p>
+            
+            <p>Now compute Q, K, V by multiplying x by each matrix :</p>
+            <ul>
+                <li><strong>Q</strong> = $xW_q$ = $[ 1 , 2 , 3 , 4 ] [ 1  0 , 0  1 , 1  1 , 0  1 ] = [ 4 , 9 ]$</li>
+                <li><strong>K</strong> = $xW_k$ = $[ 1 , 2 , 3 , 4 ] [ 1  1 , 1  0 , 0  1 , 1  0 ] = [ 7 , 4 ]$</li>
+                <li><strong>V</strong> = $xW_v$ = $[ 5 , 7 ]$</li>
+            </ul>
+            
+            <p><em>(Here bias is also present but we have not included it for the sake of simplicity.)</em></p>
+            
+            <p>So, <strong>embedding</strong> → raw meaning of token, and</p> <p><strong>$W_q$, $W_k$, $W_v$</strong> → different lenses that highlight different aspects of that meaning.</p>
+            
+            <p>Now that we have Q, K, and V vectors we will compute the <b>attention score</b>.</p>
+            <p>The attention score is the dot product of Query and Key transpose, i.e. basically finding the similarity between two vectors representing “What is the token looking for?” and “What does the token contain?” :</p>
+            
+            $$\mathrm{score}=Q\cdot K^T=(4\times 7)+(9\times 4)=28+36=64$$
+            
+            <p>If we had multiple tokens, we’d compute this score between the Query of one token and the Key of every other token.</p>
+            
+            <p>Now this score needs to be normalized by turning these into weights. For this we apply Softmax to this score. This Softmax converts the raw similarity scores into attention weights (probabilities) that sum to 1. Here in our example we have only one token so it will be converted to 1.</p>
+            
+            $$\mathrm{softmax}(z_i)=\frac{e^{z_i}}{\sum_j e^{z_j}}$$
+            
+            <p>Finally, we use the attention weight to scale the Value vector. With weight = 1 (single token case):</p>
+            
+            $$\mathrm{output}=1\times V=[5,7]$$
+            
+            <p>With multiple tokens, each Value would be multiplied by its attention weight, and then summed to form the new representation.</p>
+            
+            <br>
+            <h2><strong>Multi-Token Example: "The cat sat"</strong></h2>
+            <p>Now let us take another example to understand the multi-token case so we can understand how attention actually distributes across words.</p>
+            
+            <p><strong>Step 1: Embeddings</strong><br>
+            Suppose each token embedding is 4‑dimensional (to keep numbers small):</p>
+            <ul>
+                <li>“The” → $[1,0,1,0]$</li>
+                <li>“cat” → $[0,1,0,1]$</li>
+                <li>“sat” → $[1,1,0,0]$</li>
+            </ul>
+            
+            <p><strong>Step 2: Project into Q, K, V</strong><br>
+            We’ll use simple weight matrices (size 4 x 2) and biases. After projection, we might get:</p>
+            <ul>
+                <li>“The”: $Q=[1,2]$, $K=[0,1]$, $V=[1,0]$</li>
+                <li>“cat”: $Q=[2,1]$, $K=[1,0]$, $V=[0,1]$</li>
+                <li>“sat”: $Q=[1,1]$, $K=[1,1]$, $V=[1,1]$</li>
+            </ul>
+            
+            <p><strong>Step 3: Compute Attention Scores</strong><br>
+            For each word, we compare its Query with every other word’s Key (dot product):</p>
+            <ul>
+                <li><strong>“The” attends to:</strong>
+                    <ul>
+                        <li>“The”: $Q\cdot K = [1,2]\cdot [0,1] = 2$</li>
+                        <li>“cat”: $[1,2]\cdot [1,0] = 1$</li>
+                        <li>“sat”: $[1,2]\cdot [1,1] = 3$</li>
+                    </ul>
+                </li>
+                <li><strong>“cat” attends to:</strong>
+                    <ul>
+                        <li>“The”: $[2,1]\cdot [0,1] = 1$</li>
+                        <li>“cat”: $[2,1]\cdot [1,0] = 2$</li>
+                        <li>“sat”: $[2,1]\cdot [1,1] = 3$</li>
+                    </ul>
+                </li>
+                <li><strong>“sat” attends to:</strong>
+                    <ul>
+                        <li>“The”: $[1,1]\cdot [0,1] = 1$</li>
+                        <li>“cat”: $[1,1]\cdot [1,0] = 1$</li>
+                        <li>“sat”: $[1,1]\cdot [1,1] = 2$</li>
+                    </ul>
+                </li>
+            </ul>
+            
+            <p><strong>Step 4: Softmax Normalization</strong><br>
+            Convert scores into weights (probabilities). For example, for “The”:</p>
+            <ul>
+                <li>Raw scores: $[2, 1, 3]$</li>
+                <li>Softmax → approx $[0.27, 0.10, 0.63]$</li>
+            </ul>
+            <p>So “The” pays 63% attention to “sat,” 27% to itself, and 10% to “cat.”</p>
+            
+            <p><strong>Step 5: Weighted Values</strong><br>
+            Now each word’s new representation is a weighted sum of the Values. For “The”:</p>
+            
+            $$\mathrm{output_{The}}=0.27\cdot [1,0]+0.10\cdot [0,1]+0.63\cdot [1,1]=[0.27,0]+[0,0.10]+[0.63,0.63]=[0.90,0.73]$$
+            
+            <p>This means “The” is re‑represented in context, heavily influenced by “sat.”</p>
+            
+            <p><strong>To sum up:</strong></p>
+            <ul>
+                <li><strong>Q</strong> and <strong>K</strong> decide how much attention one word pays to another.</li>
+                <li><strong>Softmax</strong> ensures those scores become meaningful probabilities.</li>
+                <li><strong>V</strong> carries the actual information, which gets blended according to those weights.</li>
+            </ul>
+            
+            <p>So we started with “The”’s original value vector $[1,0]$ → blended it with contributions from “cat” $[0,1]$ and “sat” $[1,1]$, weighted by attention scores → The result is a new vector: $[0.90,0.73]$. This vector is the contextualized representation of “The”. It encodes information about how “The” relates to “cat” and “sat” in the sentence.</p>
+            
+            <br>
+            <h2><strong>Multi-Head Attention</strong></h2>
+            <p>In practice, all of the things discussed above take place at once for the whole sentence instead of doing it token by token i.e. all tokens are processed simultaneously using matrix multiplication.</p>
+            
+            <p>So far, you’ve seen:</p>
+            
+            $$\mathrm{Attention}(Q,K,V)=\mathrm{Softmax}\!\left(\frac{QK^T}{\sqrt{d_k}}\right)V$$
+            
+            <p>Here, Q, K, V are produced by one set of weight matrices:</p>
+            
+            $$Q=XW_q,\quad K=XW_k,\quad V=XW_v$$
+            
+            <p>That’s <strong>one head</strong>: one way of projecting embeddings and computing attention.</p>
+            
+            <p>In practice, transformers don’t stop at one head. They use multiple sets of weights:</p>
+            
+            $$W_q^{(1)},W_k^{(1)},W_v^{(1)},\quad W_q^{(2)},W_k^{(2)},W_v^{(2)},\quad \dots ,\quad W_q^{(h)},W_k^{(h)},W_v^{(h)}$$
+            
+            <p>Each head computes its own attention:</p>
+            
+            $$\mathrm{head_{\mathnormal{i}}}=\mathrm{Attention}(Q^{(i)},K^{(i)},V^{(i)})$$
+            
+            <p>Then all heads are concatenated:</p>
+            
+            $$\mathrm{MultiHead}(Q,K,V)=\mathrm{Concat}(\mathrm{head_{\mathnormal{1}}},\dots ,\mathrm{head_{\mathnormal{h}}})W^O$$
+            
+            <p>where $W^O$ is another learned matrix that mixes the heads together. With $W^O$, the model learns to integrate multiple perspectives into one unified representation.</p>
+            
+            <p>We can think of each head as a different perspective or different aspect. By having multiple heads, the model can pay attention to different aspects of the sentence in parallel (syntax, semantics, positional relations etc).</p>
+
+            <img class="content-image" src="https://miro.medium.com/v2/resize:fit:720/format:webp/1*hwV2x19ZaFdZxuHhH-nD4g.png">
+
+            <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <pre class="code-python"><code class="language-python">import numpy as np
+
+def self_attention(X, W_Q, W_K, W_V):
+    
+    # Step 1: Compute Q, K, V
+    Q = X @ W_Q
+    K = X @ W_K
+    V = X @ W_V
+
+    # Step 2: Compute attention scores
+    d_k = Q.shape[-1]
+    scores = Q @ K.T / np.sqrt(d_k)
+
+    # Step 3: Softmax to get weights
+    # (Assuming a simple softmax implementation exists)
+    attention_weights = np.exp(scores) / np.sum(np.exp(scores), axis=-1, keepdims=True)
+
+    # Step 4: Weighted sum of values
+    output = attention_weights @ V
+
+    return output, attention_weights</code></pre>
+            </div>
+            
+        </div>
+        <br>
+        <hr>
+        <br>
+        <p>Thanks for reading!</p>
+    </div>
+    <script>
+    function copyCode(btn) {
+        const codeBlock = btn.nextElementSibling.querySelector('code');
+        const text = codeBlock ? codeBlock.innerText || codeBlock.textContent : '';
+        navigator.clipboard.writeText(text);
+        btn.textContent = "Copied!";
+        setTimeout(() => btn.textContent = "Copy", 1200);
+    }
+    </script>
+</body>
+</html>
